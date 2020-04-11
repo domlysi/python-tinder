@@ -1,6 +1,5 @@
-import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pprint import pprint
 from random import randint
 from urllib.parse import urljoin
@@ -17,6 +16,7 @@ class TinderAPI:
 
     POST = 'POST'
     GET = 'GET'
+    DELETE = 'DELETE'
 
     def __init__(self, x_auth_token):
         self.x_auth_token = x_auth_token
@@ -38,6 +38,8 @@ class TinderAPI:
             r = requests.get(url=_url, params=params or None, headers=self.headers, **kwargs)
         elif method is self.POST:
             r = requests.post(url=_url, data=data or None, headers=self.headers, *args, **kwargs)
+        elif method is self.DELETE:
+            r = requests.delete(url=_url, headers=self.headers, **kwargs)
         else:
             raise AttributeError('Please check method parameter')
 
@@ -89,11 +91,14 @@ class TinderAPI:
         r = self.request('/pass/{user_id}'.format(user_id=user_id))
         return r if r.status_code == 200 else False
 
+    def unmatch(self, match_id):
+        return self.request("/user/matches/{match_id}".format(match_id=match_id), method=self.DELETE)
+
     @property
     def matches(self):
         params = {
             'messages': 0,
-            'count': 60,
+            'count': 100,
             'is_tinder_u': 'false',
             'locale': 'de'
         }
@@ -104,7 +109,15 @@ class TinderAPI:
         for match in data.get('matches'):
             msgs = []
             for msg in match.get('messages', []):
-                m = Message(**msg)
+                m = Message(**{
+                    "message_id": msg.get('_id'),
+                    "match_id": msg.get('match_id'),
+                    "sent_date": msg.get('sent_date'),
+                    "message": msg.get('message'),
+                    "message_to": msg.get('to'),
+                    "message_from": msg.get('from'),
+                    "timestamp": msg.get('timestamp')
+                })
                 msgs.append(m)
             p = Person()
             p.person_id = match['person']['_id']
@@ -114,7 +127,8 @@ class TinderAPI:
                 'message_count': match['message_count'],
                 'match_id': match['id'],
                 'person': p,
-                'messages': msgs
+                'messages': msgs,
+                'created_date': match['created_date'],
             })
             matches.append(m)
 
@@ -165,7 +179,9 @@ class TinderBot:
                         self.message_starter()
 
                 self.sleep(randint(1, 3), show_print=False)
-            self.sleep(randint(10, 60))
+
+            self.message_starter()
+            self.sleep(randint(1, 10))
 
     def message_starter(self):
         for match in self.api.matches:
@@ -176,11 +192,25 @@ class TinderBot:
     def message_match(self, match):
         line = self.starter_lines[randint(0, len(self.starter_lines)-1)]
         r = self.api.message(match.match_id, line.format(name=match.person.name))
-        print("Sending '%s' the message '%s...'" % (match.person.name, line[:10]))
+        print("Sending '%s' the message '%s...'" % (match.person.name, line[:30]))
         if not r.status_code:
             print("Error sending message")
             print(r.content)
         return r
+
+    def unmatch_not_responding(self, days=7):
+        matches = self.api.matches
+        for match in matches:
+            if len(match.messages) > 0:
+                msg = match.messages[-1]
+                if msg.message_from != self.api.profile.user_id:
+                    continue
+
+                print(msg.sent_date_time_ago())
+                if msg.sent_date_time_ago().days > days:
+                    r = self.api.unmatch(match.match_id)
+                    print("Unmatch '%s' because no response for %i days" % (match.person.name, days))
+                    self.sleep(randint(1, 3))
 
     @staticmethod
     def get_starters_from_file(path):

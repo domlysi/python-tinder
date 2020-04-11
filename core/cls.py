@@ -1,3 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
+import pytz
+from dateutil.parser import parse
+
+
 
 class Recommendation:
     user_id = None
@@ -34,17 +40,33 @@ class Message:
             if hasattr(self, key):
                 setattr(self, key, kwargs.get(key))
 
+    def sent_date_time_ago(self):
+        """
+        :rtype: timedelta
+        """
+        sent = parse(self.sent_date)
+        return datetime.now(pytz.utc) - sent
+
 
 class Match:
     message_count = None
     match_id = None
     person = None
-    messages = None
+    messages: [Message] = []
+    created_date = None
 
     def __init__(self, **kwargs):
         for key in kwargs:
             if hasattr(self, key):
                 setattr(self, key, kwargs.get(key))
+
+    def created_time_ago(self):
+        """
+        :return:
+        :rtype datetime.timedelta
+        """
+        created = parse(self.created_date)
+        return datetime.now(pytz.utc) - created
 
 
 class Profile:
