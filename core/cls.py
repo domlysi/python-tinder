@@ -52,7 +52,7 @@ class Match:
     message_count = None
     match_id = None
     person = None
-    messages: [Message] = []
+    messages = []
     created_date = None
 
     def __init__(self, **kwargs):
