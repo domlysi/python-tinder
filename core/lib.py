@@ -131,8 +131,6 @@ class TinderAPI:
                 'created_date': match['created_date'],
             })
             matches.append(m)
-
-        print("Found %i matches" % (len(data.get('matches'))))
         return matches
 
     def message(self, match_id, message):
@@ -141,10 +139,10 @@ class TinderAPI:
 
 
 class TinderBot:
-    def __init__(self, x_auth_token, is_message_on_match=False):
+    def __init__(self, x_auth_token, is_message_on_match=False, messages_file="messages.txt"):
         self.api = TinderAPI(x_auth_token)
         self.is_message_on_match = is_message_on_match
-        self.starter_lines = TinderBot.get_starters_from_file("messages.txt")
+        self.starter_lines = TinderBot.get_starters_from_file(messages_file)
 
     @staticmethod
     def sleep(seconds, show_print=True):
@@ -152,9 +150,9 @@ class TinderBot:
             print("Waiting %s seconds" % seconds)
         time.sleep(seconds)
 
-    def random_like(self,):
+    def random_like(self, is_message_starter=False):
         size_prop = 10
-        dislike_on = [2, 4]     # numbers from , if match -> dislike (like 80%)
+        dislike_on = [2, 3]     # numbers from , if match -> dislike (like 80%)
 
         while True:
             print("Getting Recs")
@@ -176,41 +174,52 @@ class TinderBot:
                     print("Liked '{name}'".format(name=rec.name))
                     if r.get('match', False):
                         print("!!! Matched '%s'" % (rec.name,))
-                        self.message_starter()
 
-                self.sleep(randint(1, 3), show_print=False)
+                        if is_message_starter:
+                            self.message_starter()
 
-            self.message_starter()
-            self.sleep(randint(1, 10))
+                self.sleep(randint(0, 2), show_print=False)
+
+            # write starter to matches
+            if is_message_starter:
+                self.message_starter()
+
+            self.sleep(randint(1, 5))
 
     def message_starter(self):
         for match in self.api.matches:
             if len(match.messages) < 1:
                 self.message_match(match)
-                self.sleep(randint(1, 3))
+                self.sleep(randint(0, 2))
 
     def message_match(self, match):
         line = self.starter_lines[randint(0, len(self.starter_lines)-1)]
         r = self.api.message(match.match_id, line.format(name=match.person.name))
-        print("Sending '%s' the message '%s...'" % (match.person.name, line[:30]))
+        print("Sending '%s' the message '%s...'" % (match.person.name, line[:50].format(name=match.person.name)))
         if not r.status_code:
             print("Error sending message")
             print(r.content)
         return r
 
+    def unmatch_all(self):
+        matches = self.api.matches
+        for match in matches:
+            self.api.unmatch(match.match_id)
+            print("Unmatched %s" % match.person.name)
+
     def unmatch_not_responding(self, days=7):
         matches = self.api.matches
+        print('Found %i matches to check for not responding %i days' % (len(matches), days))
         for match in matches:
             if len(match.messages) > 0:
                 msg = match.messages[-1]
                 if msg.message_from != self.api.profile.user_id:
                     continue
 
-                print(msg.sent_date_time_ago())
-                if msg.sent_date_time_ago().days > days:
+                if msg.sent_date_time_ago().days >= days:
                     r = self.api.unmatch(match.match_id)
                     print("Unmatch '%s' because no response for %i days" % (match.person.name, days))
-                    self.sleep(randint(1, 3))
+                    self.sleep(randint(0, 1))
 
     @staticmethod
     def get_starters_from_file(path):

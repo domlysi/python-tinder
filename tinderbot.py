@@ -8,4 +8,4 @@ if __name__ == '__main__':
     default_config = config['DEFAULT']
 
     bot = TinderBot(x_auth_token=default_config['Token'])
-    bot.random_like()
+    bot.random_like(is_message_starter=False)
