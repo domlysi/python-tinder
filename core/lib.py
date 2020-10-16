@@ -80,6 +80,7 @@ class TinderAPI:
             date = datetime.fromtimestamp(data.get('rate_limited_until') / 1000)
             print("No more likes -- have to wait until %s" % date)
             _delta = date - datetime.now()
+            print("Waiting %i seconds" % _delta.seconds)
             time.sleep(_delta.seconds)
             return False
         return {
