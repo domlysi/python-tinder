@@ -151,7 +151,7 @@ class TinderBot:
             print("Waiting %s seconds" % seconds)
         time.sleep(seconds)
 
-    def random_like(self, is_message_starter=False):
+    def random_like(self, is_message_starter=False, wait_after_match_in_s=0):
         size_prop = 10
         dislike_on = [2, 3]     # numbers from , if match -> dislike (like 80%)
 
@@ -175,6 +175,9 @@ class TinderBot:
                     print("Liked '{name}'".format(name=rec.name))
                     if r.get('match', False):
                         print("!!! Matched '%s'" % (rec.name,))
+                        if wait_after_match_in_s and wait_after_match_in_s > 0:
+                            print(f'Waiting before continuing ... ({wait_after_match_in_s * 60}')
+                            time.sleep(wait_after_match_in_s * 60)
 
                         if is_message_starter:
                             self.message_starter()
